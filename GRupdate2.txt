@@ -1,0 +1,66 @@
+import cv2
+import mediapipe as mp
+import math
+import streamlit as st
+from PIL import Image
+import numpy as np
+
+# Initialize face mesh model
+mp_face_mesh = mp.solutions.face_mesh
+mp_drawing = mp.solutions.drawing_utils
+
+# Function to calculate Golden Ratio Score from image
+def calculate_golden_ratio(image):
+    mp_face_mesh_model = mp_face_mesh.FaceMesh(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+
+    # Convert image to RGB
+    rgb_frame = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
+    # Perform face mesh
+    results = mp_face_mesh_model.process(rgb_frame)
+    score = 0
+
+    if results.multi_face_landmarks:
+        for landmarks in results.multi_face_landmarks:
+            # Extract key landmarks
+            nose = landmarks.landmark[1]
+            chin = landmarks.landmark[152]
+            left_eye = landmarks.landmark[33]
+            right_eye = landmarks.landmark[133]
+
+            # Calculate Euclidean distance between points
+            def distance(point1, point2):
+                return math.sqrt((point2.x - point1.x) ** 2 + (point2.y - point1.y) ** 2 + (point2.z - point1.z) ** 2)
+
+            # Calculate distances
+            nose_chin_distance = distance(nose, chin)
+            eye_to_eye_distance = distance(left_eye, right_eye)
+
+            # Golden Ratio calculation
+            golden_ratio = 1.618
+            ratio = nose_chin_distance / eye_to_eye_distance
+
+            # Calculate the score
+            if ratio <= golden_ratio:
+                score = round((1 - (golden_ratio - ratio) / golden_ratio) * 10, 2)
+            else:
+                score = round(10 - ((ratio - golden_ratio) / golden_ratio) * 10, 2)
+
+            score = max(0, score)
+
+    return score
+
+# Streamlit UI
+st.title("Golden Ratio Facial Proportion Score")
+st.write("Upload an image to get the facial Golden Ratio score out of 10.")
+
+# Upload image
+uploaded_image = st.file_uploader("Choose an image", type=["jpg", "jpeg", "png"])
+
+if uploaded_image is not None:
+    image = Image.open(uploaded_image)
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+
+    # Calculate and display score
+    score = calculate_golden_ratio(image)
+    st.write(f"Golden Ratio Score: {score}/10")
